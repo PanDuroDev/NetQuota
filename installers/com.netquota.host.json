@@ -1,0 +1,7 @@
+{
+  "name": "com.netquota.host",
+  "description": "NetQuota native bridge (template: fill in path and extension id via scripts/register-native-host.ps1)",
+  "path": "C:\\Program Files\\NetQuota\\netquota-native-host.exe",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/"]
+}
