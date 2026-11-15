@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Blocked by NetQuota</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="blocked">
+    <main>
+      <h1 id="title">Site blocked</h1>
+      <p id="detail" class="muted"></p>
+      <div class="row">
+        <button id="temp">Allow 5 minutes</button>
+        <button id="open" class="secondary">Open NetQuota</button>
+      </div>
+      <p class="small muted">
+        Blocking is applied per hostname with declarativeNetRequest. Temporary
+        access expires automatically; the quota itself is unchanged.
+      </p>
+    </main>
+    <script type="module" src="dist/blocked.js"></script>
+  </body>
+</html>
