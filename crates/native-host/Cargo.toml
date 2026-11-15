@@ -1,0 +1,17 @@
+[package]
+name = "netquota-native-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Chrome native messaging host: the only bridge between the extension and the NetQuota service"
+
+[[bin]]
+name = "netquota-native-host"
+path = "src/main.rs"
+
+[dependencies]
+netquota-protocol = { workspace = true }
+netquota-ipc = { workspace = true }
+anyhow = { workspace = true }
+serde_json = { workspace = true }
