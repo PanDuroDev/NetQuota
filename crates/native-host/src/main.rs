@@ -130,10 +130,20 @@ fn extension_id_from_origin(origin: &str) -> Option<String> {
 }
 
 fn allow_list_path() -> PathBuf {
-    std::env::var("NETQUOTA_DATA_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from(r"C:\ProgramData\NetQuota"))
-        .join("extension-id.txt")
+    let candidates = [
+        std::env::var("NETQUOTA_DATA_DIR").ok().map(PathBuf::from),
+        Some(PathBuf::from(r"C:\ProgramData\NetQuota")),
+        // Used by register-native-host.ps1 when no service is installed.
+        std::env::var("LOCALAPPDATA")
+            .ok()
+            .map(|dir| PathBuf::from(dir).join(r"NetQuota\data")),
+    ];
+    let dir = candidates
+        .into_iter()
+        .flatten()
+        .find(|dir| dir.join("extension-id.txt").is_file())
+        .unwrap_or_else(|| PathBuf::from(r"C:\ProgramData\NetQuota"));
+    dir.join("extension-id.txt")
 }
 
 fn read_allow_list() -> Result<Vec<String>> {

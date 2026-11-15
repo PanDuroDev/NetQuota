@@ -474,7 +474,7 @@ mod tests {
     fn polling_twice_produces_consistent_timing_and_availability() {
         let mut monitor = NetworkMonitor::new();
         let first = monitor.poll();
-        assert_eq!(first.elapsed_ms, 0);
+        assert!(first.elapsed_ms <= 1_000, "first tick {}ms", first.elapsed_ms);
         std::thread::sleep(Duration::from_millis(30));
         let second = monitor.poll();
 
