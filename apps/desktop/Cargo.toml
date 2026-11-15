@@ -1,0 +1,18 @@
+[package]
+name = "netquota-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tauri.workspace = true
+netquota-protocol.workspace = true
+netquota-core.workspace = true
+netquota-ipc.workspace = true
+netquota-monitor.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+
+[build-dependencies]
+tauri-build.workspace = true
