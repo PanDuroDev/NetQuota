@@ -1,0 +1,44 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/core",
+  "crates/protocol",
+  "crates/storage",
+  "crates/monitor",
+  "crates/enforcement",
+  "crates/quota-engine",
+  "crates/ipc",
+  "crates/windows-service",
+  "crates/native-host",
+  "crates/cli",
+  "apps/desktop",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/PanDuroDev/NetQuota"
+
+[workspace.dependencies]
+netquota-core = { path = "crates/core" }
+netquota-protocol = { path = "crates/protocol" }
+netquota-storage = { path = "crates/storage" }
+netquota-monitor = { path = "crates/monitor" }
+netquota-enforcement = { path = "crates/enforcement" }
+netquota-quota-engine = { path = "crates/quota-engine" }
+netquota-ipc = { path = "crates/ipc" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+rusqlite = { version = "0.32", features = ["bundled", "backup"] }
+windows = "0.58"
+windows-service = "0.7"
+png = "0.17"
+tauri = "2"
+tauri-build = "2"
