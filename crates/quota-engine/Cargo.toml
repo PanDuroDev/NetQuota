@@ -1,0 +1,10 @@
+[package]
+name = "netquota-quota-engine"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77"
+description = "Quota decision logic for NetQuota: transition detection without I/O"
+license = "MIT"
+
+[dependencies]
+netquota-core = { workspace = true }
