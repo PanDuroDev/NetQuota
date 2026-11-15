@@ -128,8 +128,8 @@ fn apps(json: bool) -> Result<()> {
         return Ok(());
     }
     println!(
-        "{:<30} {:>10} {:>10} {:>12} {:>12} {:>10}  {}",
-        "application", "down", "up", "period", "limit", "speed", "state"
+        "{:<30} {:>10} {:>10} {:>12} {:>12} {:>10}  state",
+        "application", "down", "up", "period", "limit", "speed"
     );
     for app in apps {
         println!(

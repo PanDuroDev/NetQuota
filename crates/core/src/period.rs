@@ -2,9 +2,10 @@ use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, TimeZone};
 use serde::{Deserialize, Serialize};
 
 /// A quota period. Windows-local time; periods reset at local midnight.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PeriodKind {
+    #[default]
     Daily,
     Weekly,
     Monthly,
@@ -20,12 +21,6 @@ impl PeriodKind {
             PeriodKind::Monthly => "monthly",
             PeriodKind::CustomDays { .. } => "custom",
         }
-    }
-}
-
-impl Default for PeriodKind {
-    fn default() -> Self {
-        Self::Daily
     }
 }
 

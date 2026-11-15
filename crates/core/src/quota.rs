@@ -57,7 +57,7 @@ pub struct Credit {
 
 impl Credit {
     pub fn active_at(&self, now_ms: i64) -> bool {
-        self.until_ms.map_or(true, |until| now_ms < until)
+        self.until_ms.is_none_or(|until| now_ms < until)
     }
 }
 

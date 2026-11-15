@@ -80,6 +80,7 @@ impl QuotaEngine {
         paused: bool,
     ) -> Decision {
         let state = self.states.entry(app_key.to_string()).or_default();
+        let was_exhausted = state.exhausted;
 
         // A new period starts clean: old exhaustion does not leak into it.
         if state.window_start_ms != Some(window_start_ms) {
@@ -87,7 +88,6 @@ impl QuotaEngine {
             state.exhausted = false;
         }
 
-        let was_exhausted = state.exhausted;
         let mut transition = Transition::None;
 
         if evaluation.exhausted.is_some() && !was_exhausted {
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn background_policy_applies_below_quota() {
         let mut engine = QuotaEngine::new();
-        let d = engine.decide("a", WINDOW, &eval(1 * MB), Enforcement::BlockBackground, true, false);
+        let d = engine.decide("a", WINDOW, &eval(MB), Enforcement::BlockBackground, true, false);
         assert!(d.block, "background rule is independent of quota");
         assert_eq!(d.transition, Transition::None);
     }

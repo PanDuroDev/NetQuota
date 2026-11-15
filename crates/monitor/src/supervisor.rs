@@ -128,6 +128,12 @@ pub struct NetworkMonitor {
     cost_at: Option<Instant>,
 }
 
+impl Default for NetworkMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NetworkMonitor {
     #[cfg(windows)]
     pub fn new() -> Self {
@@ -468,6 +474,7 @@ mod tests {
     fn polling_twice_produces_consistent_timing_and_availability() {
         let mut monitor = NetworkMonitor::new();
         let first = monitor.poll();
+        assert_eq!(first.elapsed_ms, 0);
         std::thread::sleep(Duration::from_millis(30));
         let second = monitor.poll();
 
@@ -479,7 +486,6 @@ mod tests {
             // Unprivileged runs must say so rather than report zero usage.
             assert!(second.per_process_error.is_some());
         }
-        assert!(first.down == 0 || first.down > 0);
     }
 
     #[test]

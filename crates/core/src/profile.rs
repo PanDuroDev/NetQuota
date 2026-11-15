@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProfileKind {
+    #[default]
     Normal,
     DataSaver,
     StrictDataSaver,
@@ -30,12 +31,6 @@ pub fn video_quality_for(kind: ProfileKind) -> VideoQuality {
         ProfileKind::DataSaver => VideoQuality::BalancedSaver,
         ProfileKind::StrictDataSaver => VideoQuality::ExtremeSaver,
         ProfileKind::Custom => VideoQuality::Off,
-    }
-}
-
-impl Default for ProfileKind {
-    fn default() -> Self {
-        Self::Normal
     }
 }
 

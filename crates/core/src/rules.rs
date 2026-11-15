@@ -141,7 +141,7 @@ pub fn evaluate(rules: &[Rule], facts: &Facts) -> Vec<RuleOutcome> {
 pub fn rule(id: &str, trigger: Trigger, action: Action) -> Rule {
     Rule {
         id: id.to_string(),
-        name: format!("{id}"),
+        name: id.to_string(),
         enabled: true,
         trigger,
         action,

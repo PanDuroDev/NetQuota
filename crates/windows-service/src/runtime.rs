@@ -14,7 +14,7 @@ use netquota_core::period::window_for;
 use netquota_core::policy::{AppPolicy, Enforcement};
 use netquota_core::profile::{ProfileKind, VideoQuality};
 use netquota_core::quota::{evaluate, Limit, Usage};
-use netquota_enforcement::{BlockState, Firewall};
+use netquota_enforcement::Firewall;
 use netquota_monitor::supervisor::Tick;
 use netquota_monitor::NetworkMonitor;
 use netquota_protocol::wire::{AppUsage, EventRecord, EventKind, GlobalUsage, SiteUsage, Snapshot};
@@ -70,7 +70,7 @@ impl Runtime {
         std::fs::create_dir_all(data_dir)
             .with_context(|| format!("cannot create {}", data_dir.display()))?;
         let store = Store::open(&data_dir.join("netquota.db"))?;
-        let firewall = Firewall::connect(&data_dir.join("firewall-manifest.json"), dry_run)?;
+        let firewall = Firewall::connect(data_dir.join("firewall-manifest.json"), dry_run)?;
         let mut policies = HashMap::new();
         for policy in store.all_policies()? {
             policies.insert(policy.app_key.clone(), policy);
@@ -137,7 +137,7 @@ impl Runtime {
         let ts = now_ms();
         self.unattributed_bytes = self
             .unattributed_bytes
-            .saturating_add(tick.dropped_events.max(0) as u64);
+            .saturating_add(tick.dropped_events);
         if tick.per_process_available {
             self.monitoring = MonitoringStatus::Running;
         } else if self.monitoring != MonitoringStatus::Degraded {

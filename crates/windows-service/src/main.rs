@@ -43,7 +43,11 @@ fn run(stop: Arc<AtomicBool>, dry_run: bool) -> Result<()> {
     std::thread::spawn(move || {
         if let Err(e) = netquota_ipc::serve(true, move |request| {
             let (reply_tx, reply_rx) = mpsc::channel();
-            if replies.0.lock().map(|guard| guard.send((request, reply_tx))).is_err() {
+            let queued = match replies.0.lock() {
+                Ok(guard) => guard.send((request, reply_tx)).is_ok(),
+                Err(_) => false,
+            };
+            if !queued {
                 return Response::Error {
                     code: ErrorCode::Internal,
                     message: "service is shutting down".into(),
@@ -75,8 +79,10 @@ fn run(stop: Arc<AtomicBool>, dry_run: bool) -> Result<()> {
     Ok(())
 }
 
+type QueuedRequest = (Request, mpsc::Sender<Response>);
+
 #[derive(Clone)]
-struct ReplyChannel(Arc<Mutex<mpsc::Sender<(Request, mpsc::Sender<Response>)>>>);
+struct ReplyChannel(Arc<Mutex<mpsc::Sender<QueuedRequest>>>);
 
 fn init_logging() {
     struct LogWriter(Option<std::fs::File>);

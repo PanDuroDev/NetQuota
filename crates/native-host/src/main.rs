@@ -76,6 +76,14 @@ fn run() -> Result<()> {
 
 fn next_message(input: &mut impl Read, buffer: &mut Vec<u8>) -> Result<Option<Vec<u8>>> {
     loop {
+        // Reject the announced length before waiting for a body that will never
+        // be accepted.
+        if buffer.len() >= 4 {
+            let announced = u32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]) as usize;
+            if announced > MAX_NATIVE_MESSAGE {
+                bail!("message exceeds the native messaging limit");
+            }
+        }
         if let Some(body) = take_frame(buffer).map_err(|e| anyhow::anyhow!(e))? {
             if body.len() > MAX_NATIVE_MESSAGE {
                 bail!("message exceeds the native messaging limit");

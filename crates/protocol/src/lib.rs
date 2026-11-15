@@ -116,10 +116,8 @@ impl Request {
                     return Err("invalid site".into());
                 }
             }
-            Request::ListEvents { limit } => {
-                if *limit > 1_000 {
-                    return Err("limit too large".into());
-                }
+            Request::ListEvents { limit } if *limit > 1_000 => {
+                return Err("limit too large".into());
             }
             _ => {}
         }

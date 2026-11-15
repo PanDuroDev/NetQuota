@@ -52,35 +52,37 @@ pub fn process_info(pid: u32) -> Option<ProcessInfo> {
     }
     unsafe {
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
-        let result = (|| {
-            let mut buffer = [0u16; 32_768];
-            let mut size = buffer.len() as u32;
-            let path = match QueryFullProcessImageNameW(
-                handle,
-                PROCESS_NAME_WIN32,
-                PWSTR(buffer.as_mut_ptr()),
-                &mut size,
-            ) {
-                Ok(()) => Some(String::from_utf16_lossy(&buffer[..size as usize])),
-                Err(_) => None,
-            };
-            let started_ms = read_start_time(handle).unwrap_or(0);
-            let exe_name = path
-                .as_deref()
-                .map(basename)
-                .unwrap_or_else(|| format!("pid-{pid}"));
-            let publisher = path.as_deref().and_then(publisher_of);
-            Some(ProcessInfo {
-                pid,
-                path,
-                exe_name,
-                started_ms,
-                publisher,
-            })
-        })();
+        let result = query_process(handle, pid);
         let _ = CloseHandle(handle);
         result
     }
+}
+
+unsafe fn query_process(handle: HANDLE, pid: u32) -> Option<ProcessInfo> {
+    let mut buffer = [0u16; 32_768];
+    let mut size = buffer.len() as u32;
+    let path = match QueryFullProcessImageNameW(
+        handle,
+        PROCESS_NAME_WIN32,
+        PWSTR(buffer.as_mut_ptr()),
+        &mut size,
+    ) {
+        Ok(()) => Some(String::from_utf16_lossy(&buffer[..size as usize])),
+        Err(_) => None,
+    };
+    let started_ms = read_start_time(handle).unwrap_or(0);
+    let exe_name = path
+        .as_deref()
+        .map(basename)
+        .unwrap_or_else(|| format!("pid-{pid}"));
+    let publisher = path.as_deref().and_then(publisher_of);
+    Some(ProcessInfo {
+        pid,
+        path,
+        exe_name,
+        started_ms,
+        publisher,
+    })
 }
 
 unsafe fn read_start_time(handle: HANDLE) -> Option<i64> {

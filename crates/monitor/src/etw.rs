@@ -153,6 +153,7 @@ pub struct EtwSession {
 }
 
 impl EtwSession {
+    #[allow(clippy::field_reassign_with_default)] // the anonymous unions cannot be set in a literal
     pub fn start() -> Result<Self> {
         let mut props = Props::new(SESSION_NAME, EVENT_TRACE_REAL_TIME_MODE);
         let mut name = wide(SESSION_NAME);
@@ -184,7 +185,7 @@ impl EtwSession {
             EnableTraceEx2(
                 handle,
                 &PROVIDER,
-                EVENT_CONTROL_CODE_ENABLE_PROVIDER.0 as u32,
+                EVENT_CONTROL_CODE_ENABLE_PROVIDER.0,
                 5,
                 0,
                 0,

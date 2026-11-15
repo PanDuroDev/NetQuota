@@ -83,8 +83,8 @@ unsafe fn render(icon: windows::Win32::UI::WindowsAndMessaging::HICON) -> Option
         return None;
     }
 
-    let has_alpha = pixels.chunks_exact(4).any(|p| p[3] != 0);
-    for pixel in pixels.chunks_exact_mut(4) {
+    let has_alpha = pixels.as_chunks::<4>().0.iter().any(|p| p[3] != 0);
+    for pixel in pixels.as_chunks_mut::<4>().0 {
         pixel.swap(0, 2); // BGRA -> RGBA
         if !has_alpha && (pixel[0] | pixel[1] | pixel[2]) != 0 {
             pixel[3] = 255;

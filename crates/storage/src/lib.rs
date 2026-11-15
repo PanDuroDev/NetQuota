@@ -93,7 +93,7 @@ impl Store {
                     icon_path     TEXT
                 );
                 CREATE TABLE app_policies (
-                    app_key     TEXT PRIMARY KEY REFERENCES apps(app_key) ON DELETE CASCADE,
+                    app_key     TEXT PRIMARY KEY,
                     policy_json TEXT NOT NULL,
                     updated_ms  INTEGER NOT NULL
                 );
@@ -599,6 +599,16 @@ mod tests {
     }
 
     #[test]
+    fn policy_can_exist_before_the_app_is_seen() {
+        // A user may set a quota for something that has not run yet.
+        let s = store();
+        let mut p = AppPolicy::new(r"c:\games\launcher.exe");
+        p.limit.total = Some(5_000);
+        s.put_policy(&p, 1).unwrap();
+        assert_eq!(s.get_policy(&p.app_key).unwrap().unwrap(), p);
+    }
+
+    #[test]
     fn site_usage_accumulates_and_limits_apply() {
         let s = store();
         s.add_site_usage("youtube.com", 100, 5, 10, 1).unwrap();
@@ -652,7 +662,9 @@ mod tests {
     }
 
     #[test]
-    fn foreign_keys_cascade_to_policies() {
+    fn policies_outlive_app_rows() {
+        // Discovery is transient; a quota is user intent and must survive a
+        // pruned app row.
         let s = store();
         s.upsert_app(&app(r"C:\a\app.exe", "app.exe"), "other", 1)
             .unwrap();
@@ -660,6 +672,6 @@ mod tests {
         s.conn
             .execute("DELETE FROM apps WHERE app_key = ?1", params![r"c:\a\app.exe"])
             .unwrap();
-        assert_eq!(s.all_policies().unwrap().len(), 0);
+        assert_eq!(s.all_policies().unwrap().len(), 1);
     }
 }

@@ -4,10 +4,11 @@ use crate::period::PeriodKind;
 use crate::profile::ProfileKind;
 use crate::quota::{Credit, Limit};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Enforcement {
     /// Block network access when the quota is exhausted.
+    #[default]
     Block,
     /// Record and notify only; used while the user evaluates a policy.
     NotifyOnly,
@@ -15,13 +16,7 @@ pub enum Enforcement {
     BlockBackground,
 }
 
-impl Default for Enforcement {
-    fn default() -> Self {
-        Self::Block
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BackgroundPolicy {
     pub block_in_background: bool,
     pub foreground_only: bool,
@@ -29,18 +24,6 @@ pub struct BackgroundPolicy {
     pub wifi_only: bool,
     /// Allowed background window in local hours `[start, end)`; `None` = any time.
     pub allowed_hours: Option<(u8, u8)>,
-}
-
-impl Default for BackgroundPolicy {
-    fn default() -> Self {
-        Self {
-            block_in_background: false,
-            foreground_only: false,
-            block_on_metered: false,
-            wifi_only: false,
-            allowed_hours: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
