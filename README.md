@@ -47,10 +47,12 @@ pipe.
 Compiling this workspace needs ~7 GB of target files. The `build` workflow does it
 on GitHub instead and publishes the result:
 
-1. Actions → **build** → *Run workflow*.
-2. Download the `netquota-windows-x64` artifact: four signed-off-the-shelf
-   executables in `netquota-windows-x64.zip` plus the install scripts, and
-   `netquota-extension.zip` ready to load unpacked.
+1. Grab the archives from the latest release:
+   <https://github.com/PanDuroDev/NetQuota/releases/latest>
+   (`netquota-windows-x64.zip`: four executables plus the install scripts;
+   `netquota-extension.zip`: load unpacked in Chrome).
+2. To build an unreleased commit instead, run Actions → **build** → *Run workflow*
+   and download the `netquota-windows-x64` artifact.
 3. Pushing a `v*` tag publishes the same two archives as a GitHub Release.
 
 The workflow also starts the service with dry-run enforcement and calls
