@@ -42,6 +42,23 @@ The service is the only elevated component. It monitors, decides, and enforces;
 the UI and browser can only ask it to do things through a validated, DACL-restricted
 pipe.
 
+## Download a build (no local compilation)
+
+Compiling this workspace needs ~7 GB of target files. The `build` workflow does it
+on GitHub instead and publishes the result:
+
+1. Actions → **build** → *Run workflow*.
+2. Download the `netquota-windows-x64` artifact: four signed-off-the-shelf
+   executables in `netquota-windows-x64.zip` plus the install scripts, and
+   `netquota-extension.zip` ready to load unpacked.
+3. Pushing a `v*` tag publishes the same two archives as a GitHub Release.
+
+The workflow also starts the service with dry-run enforcement and calls
+`netquota-cli status` before uploading, so a green build means the pipe and the
+monitoring loop came up on a clean Windows runner.
+
+Local compilation is still supported but not required.
+
 ## Quick start (developer)
 
 Requirements: Windows 10/11, Rust 1.75+, Node 20+, an elevated PowerShell only
