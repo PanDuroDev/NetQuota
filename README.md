@@ -93,6 +93,12 @@ cd apps\desktop\ui; npm install; npx tsc -p tsconfig.json; cd ..\..
 cargo run -p netquota-desktop
 ```
 
+The window never runs as administrator. Press **Install service** in the banner:
+Windows asks for admin once, the app registers `netquota-service.exe` (the copy
+next to it, or the one in `target\release`) and the per-application rows, quotas
+and blocking appear a second later. `netquota-service.exe --install` and
+`--uninstall` do the same from an elevated prompt.
+
 Chrome extension:
 
 ```powershell

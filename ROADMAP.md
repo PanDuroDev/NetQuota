@@ -20,7 +20,7 @@ by the documented manual procedure. Anything else says what is missing.
 | Native messaging host with origin allow-list | done |
 | Video adapters: YouTube (verified best-effort), TikTok, generic | done |
 | Desktop UI | done (Tauri shell; see `apps/desktop/README.md`) |
-| Installer / MSI, service registration UI | scripts only |
+| Installer / MSI, service registration UI | one-click install from the desktop app via UAC (`netquota-service --install`), plus scripts; MSI still missing |
 | Speed limits (upload QoS) | stored, not enforced |
 | Download shaping | unsupported, needs WFP driver |
 | Automation rules UI | data model + engine present, UI minimal |
