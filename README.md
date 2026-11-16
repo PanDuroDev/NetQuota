@@ -47,14 +47,21 @@ pipe.
 Compiling this workspace needs ~7 GB of target files. The `build` workflow does it
 on GitHub instead and publishes the result:
 
-1. Grab the archives from the latest release:
+1. Grab the latest release:
    <https://github.com/PanDuroDev/NetQuota/releases/latest>
    (`netquota-windows-x64.zip`: four executables plus the install scripts;
-   `netquota-extension.zip`: load unpacked in Chrome).
+   `netquota-extension.zip`: extract it, then load the folder unpacked in Chrome).
+2. Extract the Windows zip to any folder, run `netquota-desktop.exe`, and press
+   **Install service** in the banner. That is the only UAC prompt.
+3. In `chrome://extensions` (Developer mode) copy the extension id, paste it into
+   **Settings → Chrome extension**, and press **Connect extension**. This writes
+   the native messaging manifest for your user and authorizes the id in the
+   service, so no manual registry or ProgramData edits are needed.
+4. If you prefer scripts, `scripts\install-service.ps1 -ExtensionId <id>` does the
+   same two steps elevated.
 2. To build an unreleased commit instead, run Actions → **build** → *Run workflow*
    and download the `netquota-windows-x64` artifact.
 3. Pushing a `v*` tag publishes the same two archives as a GitHub Release.
-
 The workflow also starts the service with dry-run enforcement and calls
 `netquota-cli status` before uploading, so a green build means the pipe and the
 monitoring loop came up on a clean Windows runner.
