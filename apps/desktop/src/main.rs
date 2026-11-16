@@ -245,6 +245,66 @@ fn install_service() -> Result<String, String> {
     Ok("service installed".into())
 }
 
+/// Registers the native messaging host for this Windows user and authorizes the
+/// extension id in the service. The service part needs admin, so it runs through
+/// the same UAC helper as install.
+#[tauri::command]
+fn register_extension(extension_id: String) -> Result<String, String> {
+    let id = extension_id.trim().to_ascii_lowercase();
+    if id.len() != 32 || !id.bytes().all(|byte| (b'a'..=b'p').contains(&byte)) {
+        return Err("extension id must be 32 characters in a-p".into());
+    }
+    let dir = std::env::current_exe()
+        .map_err(|err| err.to_string())?
+        .parent()
+        .ok_or("cannot locate the app directory")?
+        .to_path_buf();
+    let host = dir.join("netquota-native-host.exe");
+    let service = dir.join("netquota-service.exe");
+    if !host.is_file() || !service.is_file() {
+        return Err("native host and service executables must sit next to the app".into());
+    }
+    let local = std::env::var_os("LOCALAPPDATA")
+        .map(std::path::PathBuf::from)
+        .ok_or("LOCALAPPDATA is not set")?
+        .join("NetQuota");
+    std::fs::create_dir_all(&local).map_err(|err| err.to_string())?;
+    let manifest = local.join("com.netquota.host.json");
+    let body = serde_json::json!({
+        "name": "com.netquota.host",
+        "description": "NetQuota native messaging bridge",
+        "path": host.to_string_lossy(),
+        "type": "stdio",
+        "allowed_origins": [format!("chrome-extension://{id}/")],
+    });
+    let text = serde_json::to_string_pretty(&body).map_err(|err| err.to_string())?;
+    std::fs::write(&manifest, text).map_err(|err| err.to_string())?;
+
+    let key = r"HKCU\Software\Google\Chrome\NativeMessagingHosts\com.netquota.host";
+    let status = std::process::Command::new("reg")
+        .args(["add", key, "/ve", "/t", "REG_SZ", "/d"])
+        .arg(&manifest)
+        .arg("/f")
+        .status()
+        .map_err(|err| err.to_string())?;
+    if !status.success() {
+        return Err("could not write the native messaging registry key".into());
+    }
+
+    let script = format!(
+        "Start-Process -FilePath '{}' -ArgumentList '--allow-extension','{id}' -Verb RunAs -Wait",
+        service.display().to_string().replace('\'', "''")
+    );
+    let status = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .status()
+        .map_err(|err| err.to_string())?;
+    if !status.success() {
+        return Err("authorizing the extension was cancelled or failed".into());
+    }
+    Ok("extension registered".into())
+}
+
 /// Returns PNG bytes for a desktop app icon, extracted from the executable by the
 /// same code path the service uses. Cached per path for the session.
 #[tauri::command]
@@ -299,6 +359,7 @@ fn main() {
             set_site_policy,
             restore_all,
             install_service,
+            register_extension,
             app_icon,
             global_usage
         ])

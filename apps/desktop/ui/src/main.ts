@@ -153,6 +153,10 @@ const T: Record<string, Record<string, string>> = {
     "svc.retry": "Retry",
     "svc.installing": "Installing…",
     "svc.hint": "Installing registers a LocalSystem service so per-application usage and blocking work. This window stays unelevated.",
+    "ext.help": "Load the extension unpacked in Chrome, copy its id from chrome://extensions (Developer mode), and connect it here. This registers the native bridge for this Windows user and authorizes the extension in the service.",
+    "ext.placeholder": "32-character extension id",
+    "ext.register": "Connect extension",
+    "ext.ok": "Extension registered. Reload it in Chrome if it still shows offline.",
     "trust.recover": "Removed {n} NetQuota rules.",
     "trust.offline": "The service is not running. Per-application data and enforcement are unavailable.",
   },
@@ -212,6 +216,10 @@ const T: Record<string, Record<string, string>> = {
     "svc.retry": "إعادة المحاولة",
     "svc.installing": "جارٍ التثبيت…",
     "svc.hint": "التثبيت ينشئ خدمة نظام لتعمل إحصاءات كل تطبيق والحجب. هذه النافذة تبقى بدون صلاحيات إدارية.",
+    "ext.help": "حمّل الإضافة في Chrome، وانسخ معرّفها من chrome://extensions (وضع المطوّر)، ثم اربطها هنا. هذا يسجّل جسر الاتصال لهذا المستخدم ويسمح للإضافة في الخدمة.",
+    "ext.placeholder": "معرّف الإضافة (32 حرفاً)",
+    "ext.register": "ربط الإضافة",
+    "ext.ok": "تم تسجيل الإضافة. أعد تحميلها في Chrome إن بقيت غير متصلة.",
     "trust.recover": "أُزيلت {n} قاعدة NetQuota.",
     "trust.offline": "الخدمة لا تعمل. بيانات التطبيقات والتنفيذ غير متاحة.",
   },
@@ -606,8 +614,13 @@ function viewSettings(): string {
         <button data-svc="install" ${installBusy ? "disabled" : ""}>${esc(t("svc.install"))}</button>
         <button class="ghost" data-svc="retry">${esc(t("svc.retry"))}</button>
       </div>
-      <div class="small muted" style="margin-top:8px">Extension: load <code>apps/chrome-extension</code> unpacked, then run
-      <code>scripts/register-native-host.ps1 -ExtensionId &lt;id&gt;</code> so the bridge can authenticate it.</div></div></div>
+      <div class="small muted" style="margin-top:10px">${esc(t("ext.help"))}</div>
+      <div class="row" style="margin-top:6px">
+        <input id="ext-id" placeholder="${esc(t("ext.placeholder"))}" style="flex:1" />
+        <button class="ghost" id="ext-register">${esc(t("ext.register"))}</button>
+      </div>
+      <div class="small muted" id="ext-result" style="margin-top:6px"></div>
+    </div></div>
     ${lastError ? `<div class="banner" style="margin-top:14px">${esc(lastError)}</div>` : ""}`;
 }
 
@@ -670,6 +683,19 @@ function render(): void {
       break;
     case "settings":
       view.innerHTML = viewSettings();
+      document.getElementById("ext-register")?.addEventListener("click", () => {
+        const input = document.getElementById("ext-id") as HTMLInputElement | null;
+        const result = document.getElementById("ext-result");
+        if (!input || !result) return;
+        result.textContent = "…";
+        void invoke<string>("register_extension", { extensionId: input.value })
+          .then(() => {
+            result.textContent = t("ext.ok");
+          })
+          .catch((err) => {
+            result.textContent = String(err);
+          });
+      });
       document.getElementById("recover")?.addEventListener("click", () => {
         void invoke<number>("restore_all")
           .then((removed) => {
