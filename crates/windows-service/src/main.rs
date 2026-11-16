@@ -16,7 +16,14 @@ use runtime::Runtime;
 const SERVICE_NAME: &str = "NetQuota";
 
 fn main() -> Result<()> {
-    let console = std::env::args().any(|arg| arg == "--console");
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--install") {
+        return install();
+    }
+    if args.iter().any(|a| a == "--uninstall") {
+        return uninstall();
+    }
+    let console = args.iter().any(|a| a == "--console");
     let dry_run = std::env::var("NETQUOTA_DRY_RUN").is_ok_and(|v| v == "1");
     if dry_run {
         eprintln!("dry-run: firewall rules are simulated, no traffic is affected");
@@ -118,6 +125,94 @@ fn init_logging() {
         })
         .with_max_level(tracing::Level::INFO)
         .try_init();
+}
+
+/// Register this executable as a LocalSystem service and start it. The desktop
+/// application runs this through a UAC prompt; no other step needs admin.
+fn install() -> Result<()> {
+    use std::ffi::OsString;
+    use windows_service::service::{
+        ServiceAccess, ServiceErrorControl, ServiceInfo, ServiceStartType, ServiceState,
+        ServiceType,
+    };
+    use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
+
+    let source = std::env::current_exe().context("locate service executable")?;
+    // The service must survive the folder it was downloaded to, so install a
+    // copy under ProgramData. A running service keeps its old image, so an
+    // upgrade can overwrite the file in place.
+    let bin_dir = runtime::data_dir().join("bin");
+    std::fs::create_dir_all(&bin_dir).context("create service directory")?;
+    let binary = bin_dir.join("netquota-service.exe");
+    if source != binary {
+        match std::fs::copy(&source, &binary) {
+            Ok(_) => {}
+            // Locked by the running service: keep using the installed copy.
+            Err(_) if binary.is_file() => {}
+            Err(err) => return Err(err).context("copy service executable"),
+        }
+    }
+    let manager = ServiceManager::local_computer(
+        None::<&str>,
+        ServiceManagerAccess::CONNECT | ServiceManagerAccess::CREATE_SERVICE,
+    )?;
+    let info = ServiceInfo {
+        name: OsString::from(SERVICE_NAME),
+        display_name: OsString::from("NetQuota network manager"),
+        service_type: ServiceType::OWN_PROCESS,
+        start_type: ServiceStartType::AutoStart,
+        error_control: ServiceErrorControl::Normal,
+        executable_path: binary,
+        launch_arguments: Vec::new(),
+        dependencies: Vec::new(),
+        account_name: None,
+        account_password: None,
+    };
+    let access = ServiceAccess::START | ServiceAccess::STOP | ServiceAccess::QUERY_STATUS;
+    let service = match manager.create_service(&info, access) {
+        Ok(service) => service,
+        // Already installed: reuse it so upgrading the files is enough.
+        Err(create_error) => manager
+            .open_service(SERVICE_NAME, access)
+            .map_err(|_| create_error)
+            .context("create service")?,
+    };
+    match service.start::<&str>(&[]) {
+        Ok(_) => println!("service '{SERVICE_NAME}' installed and started"),
+        Err(start_error) => {
+            let running = service
+                .query_status()
+                .map(|status| status.current_state == ServiceState::Running)
+                .unwrap_or(false);
+            if !running {
+                return Err(start_error).context("start service");
+            }
+            println!("service '{SERVICE_NAME}' is already running");
+        }
+    }
+    Ok(())
+}
+
+/// Restore NetQuota's own firewall rules, then remove the service.
+fn uninstall() -> Result<()> {
+    use windows_service::service::ServiceAccess;
+    use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
+
+    if let Ok(mut firewall) =
+        netquota_enforcement::Firewall::connect(runtime::data_dir().join("firewall-manifest.json"), false)
+    {
+        let _ = firewall.restore_all();
+    }
+    let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)?;
+    let service = manager
+        .open_service(SERVICE_NAME, ServiceAccess::STOP | ServiceAccess::DELETE)
+        .context("open service")?;
+    let _ = service.stop();
+    service.delete().context("delete service")?;
+    // Remove the installed copy; failure here is harmless for a later reinstall.
+    let _ = std::fs::remove_dir_all(runtime::data_dir().join("bin"));
+    println!("service '{SERVICE_NAME}' removed");
+    Ok(())
 }
 
 fn install_console_handler(stop: Arc<AtomicBool>) {

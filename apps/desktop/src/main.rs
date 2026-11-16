@@ -219,6 +219,32 @@ fn restore_all() -> Result<u32, String> {
     }
 }
 
+/// Installs the service through a UAC prompt using the executable that ships
+/// next to this app. Re-running it upgrades the registration in place.
+#[tauri::command]
+fn install_service() -> Result<String, String> {
+    let exe = std::env::current_exe().map_err(|err| err.to_string())?;
+    let service = exe
+        .parent()
+        .ok_or("cannot locate the app directory")?
+        .join("netquota-service.exe");
+    if !service.is_file() {
+        return Err(format!("netquota-service.exe not found next to {}", exe.display()));
+    }
+    let script = format!(
+        "Start-Process -FilePath '{}' -ArgumentList '--install' -Verb RunAs -Wait",
+        service.display().to_string().replace('\'', "''")
+    );
+    let status = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .status()
+        .map_err(|err| err.to_string())?;
+    if !status.success() {
+        return Err("installation was cancelled or failed".into());
+    }
+    Ok("service installed".into())
+}
+
 /// Returns PNG bytes for a desktop app icon, extracted from the executable by the
 /// same code path the service uses. Cached per path for the session.
 #[tauri::command]
@@ -272,6 +298,7 @@ fn main() {
             apply_profile,
             set_site_policy,
             restore_all,
+            install_service,
             app_icon,
             global_usage
         ])

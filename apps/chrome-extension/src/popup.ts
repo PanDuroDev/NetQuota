@@ -25,34 +25,33 @@ function send<T>(message: Record<string, unknown>): Promise<T> {
 }
 
 function pill(support: VideoStatus["quality"], label: string): string {
-  return `<span class="pill ${support}">${esc(label)}: ${esc(support.replace("_", " "))}</span>`;
+  const text = support === "best_effort" ? "best effort" : support;
+  return `<span class="pill ${support}">${esc(label)}: ${esc(text)}</span>`;
 }
 
 const PROFILES: Array<[string, string]> = [
   ["normal", "Normal"],
-  ["data_saver", "Data Saver"],
-  ["strict_data_saver", "Strict Data Saver"],
+  ["data_saver", "Saver"],
+  ["strict_data_saver", "Strict"],
   ["gaming", "Gaming"],
 ];
 
 const QUALITIES: Array<[number | null, string]> = [
-  [null, "Off (no forcing)"],
+  [null, "Off — never force a quality"],
   [144, "Ultra Saver · 144p"],
   [240, "Extreme Saver · 240p"],
   [360, "Balanced Saver · 360p"],
   [480, "Normal Saver · 480p"],
 ];
 
-function siteRow(site: SiteUsage): string {
-  const used = formatBytes(site.down);
-  const limit = site.limit === null ? "unlimited" : formatBytes(site.limit);
+function siteLine(site: SiteUsage): string {
   const state = site.blocked ? "blocked" : site.exhausted ? "over quota" : "ok";
-  return `<tr>
-    <td>${esc(site.host)}</td>
-    <td>${esc(used)}</td>
-    <td class="muted">${esc(limit)}</td>
-    <td class="muted">${esc(state)}</td>
-  </tr>`;
+  return `<div class="site-line">
+    <span class="host">${esc(site.host)}</span>
+    <span class="used">${esc(formatBytes(site.down))}</span>
+    <span class="used muted">${esc(site.limit === null ? "∞" : formatBytes(site.limit))}</span>
+    <span class="pill ${site.blocked ? "unsupported" : "enforced"}">${esc(state)}</span>
+  </div>`;
 }
 
 function render(state: PopupState): void {
@@ -62,91 +61,88 @@ function render(state: PopupState): void {
   const quality = state.video?.quality ?? "unsupported";
   const saving = state.video?.data_saving ?? "unsupported";
   const limitMb = limit === null ? "" : String(Math.round(limit / 1_000_000));
+  const initial = (state.host.replace(/^www\./, "")[0] ?? "?").toUpperCase();
+  const connected = state.connected;
 
   app.innerHTML = `
-    <div class="banner">
-      <span class="dot ${state.connected ? "on" : ""}"></span>
-      <span>${state.connected ? `Service connected · v${esc(state.service_version ?? "?")}` : "Desktop service offline"}</span>
-      <span class="pill" style="margin-left:auto">${esc(state.monitoring ?? "unavailable")}</span>
+    <div class="top">
+      <div class="brand"><img src="icon-48.png" alt="" /><span>NetQuota</span></div>
+      <span class="status ${connected ? "on" : ""}">
+        <span class="dot ${connected ? "on" : ""}"></span>
+        ${connected ? `Service ${esc(state.service_version ?? "")}` : "Service offline"}
+      </span>
     </div>
-    ${state.connected ? "" : `<div class="small muted" style="margin-bottom:8px">Browser rules still apply. Per-app usage and ${
-      state.enforcement_ready ? "service" : "system"
-    } enforcement need the NetQuota service.</div>`}
 
-    <div class="card">
-      <div class="row">
-        <div>
-          <div class="muted small">This site today (estimated)</div>
-          <div class="big">${esc(formatBytes(state.today_bytes))}</div>
+    <section class="site">
+      <div class="site-head">
+        <div class="avatar">${esc(initial)}</div>
+        <div style="min-width:0">
+          <div class="host">${esc(state.host || "No active site")}</div>
+          <div class="small muted">
+            ${
+              limit === null
+                ? "No daily quota · estimated"
+                : `${esc(formatBytes(Math.max(limit - state.today_bytes, 0)))} left of ${esc(formatBytes(limit))}`
+            }
+          </div>
         </div>
-        <div style="margin-left:auto;text-align:right">
-          <div class="muted small">${esc(state.host || "no site")}</div>
-          <div>${limit === null ? "no quota" : esc(formatBytes(limit))}</div>
-        </div>
+        <div class="amount">${esc(formatBytes(state.today_bytes))}<small>estimated today</small></div>
       </div>
       ${limit === null ? "" : `<div class="bar ${barClass}"><span style="width:${(ratio * 100).toFixed(0)}%"></span></div>`}
-      <div class="row" style="margin-top:10px">
+      <div class="row">
         <button class="${state.blocked ? "secondary" : "danger"}" id="toggle" ${state.host ? "" : "disabled"}>
-          ${state.blocked ? "Unblock site" : "Block site"}
+          ${state.blocked ? "Unblock" : "Block site"}
         </button>
         <button class="secondary" id="temp" ${state.host ? "" : "disabled"}>Allow 5 min</button>
+        <span class="small muted" style="margin-inline-start:auto">MB/day</span>
+        <input id="limit" type="number" min="0" step="10" placeholder="none" value="${esc(limitMb)}" ${state.host ? "" : "disabled"} />
+        <button class="secondary" id="save" ${state.host ? "" : "disabled"}>Set</button>
       </div>
-      <div class="row" style="margin-top:8px">
-        <span class="muted small">Daily limit (MB)</span>
-        <input id="limit" type="number" min="0" step="10" value="${esc(limitMb)}" ${state.host ? "" : "disabled"} />
-        <button class="secondary" id="save" ${state.host ? "" : "disabled"}>Save</button>
-      </div>
-      <div class="small muted" style="margin-top:6px">
-        Site bytes are estimated: cross-origin media does not expose transfer sizes,
-        so playback is modelled from bitrate. Treat this as a budget, not a meter.
-      </div>
-    </div>
+    </section>
 
-    <h2>Video data saver</h2>
-    <div class="card">
+    ${connected ? "" : `<section class="panel"><h2>Service offline</h2>
+      <div class="small muted">Site blocking still works in Chrome. Per-application usage and Windows-level blocking need the NetQuota service — open the desktop app and press Install service.</div>
+    </section>`}
+
+    <section class="panel">
+      <h2>Video data saver</h2>
       <div class="row" style="gap:6px;flex-wrap:wrap">
-        ${pill(quality, "quality")} ${pill(saving, "data saving")}
+        ${pill(quality, "quality")} ${pill(saving, "playback")}
       </div>
-      <div class="row" style="margin-top:8px">
-        <span class="muted small">Preferred quality</span>
-        <select id="quality" style="flex:1">
-          ${QUALITIES.map(
-            ([value, label]) =>
-              `<option value="${value ?? ""}" ${
-                (state.quality_height ?? null) === value ? "selected" : ""
-              }>${esc(label)}</option>`,
-          ).join("")}
-        </select>
-      </div>
-      <div class="small muted" style="margin-top:6px">
-        ${esc(state.video?.detail ?? "No adapter report yet for this site.")}
-      </div>
-    </div>
-
-    <h2>Profile</h2>
-    <div class="card">
-      <select id="profile" style="width:100%">
-        ${PROFILES.map(
+      <select id="quality">
+        ${QUALITIES.map(
           ([value, label]) =>
-            `<option value="${value}" ${state.profile === value ? "selected" : ""}>${esc(label)}</option>`,
+            `<option value="${value ?? ""}" ${
+              (state.quality_height ?? null) === value ? "selected" : ""
+            }>${esc(label)}</option>`,
         ).join("")}
       </select>
-      <div class="small muted" style="margin-top:6px">
+      <div class="small muted">${esc(state.video?.detail ?? "No adapter report for this site yet.")}</div>
+    </section>
+
+    <section class="panel">
+      <h2>Profile across all apps</h2>
+      <div class="segment">
+        ${PROFILES.map(
+          ([value, label]) =>
+            `<button data-profile="${value}" class="${state.profile === value ? "active" : ""}">${esc(label)}</button>`,
+        ).join("")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Sites with activity</h2>
+      <div class="sites">
         ${
-          state.connected
-            ? "Profiles are applied by the Windows service across all apps."
-            : "Connect the desktop service to change profiles."
+          state.sites.length === 0
+            ? `<div class="small muted">Nothing tracked yet.</div>`
+            : state.sites.map(siteLine).join("")
         }
       </div>
-    </div>
+    </section>
 
-    <h2>Sites with activity</h2>
-    <table>
-      <tr><th>Site</th><th>Used</th><th>Limit</th><th>State</th></tr>
-      ${state.sites.length === 0 ? `<tr><td colspan="4" class="muted">Nothing tracked yet.</td></tr>` : state.sites.map(siteRow).join("")}
-    </table>
-    ${state.last_error ? `<p class="small muted">Last error: ${esc(state.last_error)}</p>` : ""}
-    <p class="small muted">NetQuota is local-only. No browsing data leaves this machine.</p>
+    ${state.last_error ? `<div class="small muted">Last error: ${esc(state.last_error)}</div>` : ""}
+    <footer>Local only · site bytes are estimated from playback bitrate and resource timing</footer>
   `;
 
   document.getElementById("toggle")?.addEventListener("click", () => {
@@ -166,9 +162,10 @@ function render(state: PopupState): void {
     const height = raw === "" ? null : Number(raw);
     void send({ type: "set_quality", height }).then(refresh);
   });
-  document.getElementById("profile")?.addEventListener("change", (event) => {
-    const profile = (event.target as HTMLSelectElement).value;
-    void send({ type: "set_profile", profile }).then(refresh);
+  document.querySelectorAll<HTMLButtonElement>(".segment button").forEach((button) => {
+    button.addEventListener("click", () => {
+      void send({ type: "set_profile", profile: button.dataset.profile }).then(refresh);
+    });
   });
 }
 
