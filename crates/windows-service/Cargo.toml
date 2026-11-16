@@ -1,0 +1,29 @@
+[package]
+name = "netquota-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "NetQuota Windows background monitoring and enforcement service"
+
+[[bin]]
+name = "netquota-service"
+path = "src/main.rs"
+
+[dependencies]
+netquota-core = { workspace = true }
+netquota-protocol = { workspace = true }
+netquota-storage = { workspace = true }
+netquota-monitor = { workspace = true }
+netquota-enforcement = { workspace = true }
+netquota-quota-engine = { workspace = true }
+netquota-ipc = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+windows-service = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_System_Threading", "Win32_System_Console"] }

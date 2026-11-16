@@ -1,0 +1,21 @@
+[package]
+name = "netquota-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Operator CLI for NetQuota: status, diagnostics, enforcement recovery"
+
+[[bin]]
+name = "netquota-cli"
+path = "src/main.rs"
+
+[dependencies]
+netquota-core = { workspace = true }
+netquota-protocol = { workspace = true }
+netquota-monitor = { workspace = true }
+netquota-enforcement = { workspace = true }
+netquota-ipc = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+serde_json = { workspace = true }

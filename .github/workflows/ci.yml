@@ -1,0 +1,53 @@
+name: ci
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Tests
+        run: cargo test --workspace --all-targets
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  extension:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/chrome-extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/chrome-extension/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+
+  desktop-ui:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/desktop/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/desktop/ui/package-lock.json
+      - run: npm ci
+      - run: npx tsc -p tsconfig.json --noEmit

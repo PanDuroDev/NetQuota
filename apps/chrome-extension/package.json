@@ -1,0 +1,15 @@
+{
+  "name": "netquota-chrome-extension",
+  "private": true,
+  "version": "0.1.0",
+  "description": "NetQuota Chrome MV3 extension",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.0.287",
+    "typescript": "5.7.2"
+  }
+}

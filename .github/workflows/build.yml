@@ -1,0 +1,103 @@
+name: build
+
+# Builds the Windows binaries on GitHub so no developer machine has to compile
+# 7 GB of artifacts, and people can download a ready executable.
+# Manual runs produce workflow artifacts; pushing a v* tag also publishes a release.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            apps/chrome-extension/package-lock.json
+            apps/desktop/ui/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build extension
+        working-directory: apps/chrome-extension
+        run: npm ci; npm run build
+
+      - name: Build desktop UI
+        working-directory: apps/desktop/ui
+        run: npm ci; npm run build
+
+      - name: Compile binaries
+        run: cargo build --release --workspace --bins
+
+      - name: Collect executables
+        shell: pwsh
+        run: |
+          $out = "dist/netquota-windows-x64"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          foreach ($bin in "netquota-service", "netquota-cli", "netquota-native-host", "netquota-desktop") {
+            Copy-Item "target/release/$bin.exe" $out
+          }
+          Copy-Item "installers/com.netquota.host.json" $out
+          Copy-Item "scripts/install-service.ps1", "scripts/uninstall-service.ps1",
+                    "scripts/register-native-host.ps1", "scripts/unregister-native-host.ps1" $out
+          Compress-Archive -Path "$out/*" -DestinationPath "dist/netquota-windows-x64.zip" -Force
+
+      - name: Package extension
+        shell: pwsh
+        run: |
+          $stage = "dist/extension"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "apps/chrome-extension/manifest.json",
+                    "apps/chrome-extension/popup.html",
+                    "apps/chrome-extension/blocked.html",
+                    "apps/chrome-extension/icon-*.png" $stage
+          Copy-Item "apps/chrome-extension/dist" "$stage/dist" -Recurse
+          Compress-Archive -Path "$stage/*" -DestinationPath "dist/netquota-extension.zip" -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: netquota-windows-x64
+          path: |
+            dist/netquota-windows-x64.zip
+            dist/netquota-extension.zip
+          if-no-files-found: error
+
+      - name: Test that the service starts
+        shell: pwsh
+        env:
+          NETQUOTA_DRY_RUN: "1"
+          NETQUOTA_DATA_DIR: ${{ runner.temp }}\nqdata
+        run: |
+          $svc = Start-Process -FilePath "target/release/netquota-service.exe" -ArgumentList "--console" -PassThru
+          Start-Sleep -Seconds 4
+          if ($svc.HasExited) { throw "service exited with $($svc.ExitCode)" }
+          $status = & "./target/release/netquota-cli.exe" status
+          $status | Write-Host
+          if ($LASTEXITCODE -ne 0) { throw "cli status failed" }
+          & "./target/release/netquota-cli.exe" recover
+          Stop-Process -Id $svc.Id -Force
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            "dist/netquota-windows-x64.zip" "dist/netquota-extension.zip" `
+            --title "NetQuota ${{ github.ref_name }}" --generate-notes
