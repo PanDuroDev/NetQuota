@@ -177,7 +177,7 @@ fn install() -> Result<()> {
             .map_err(|_| create_error)
             .context("create service")?,
     };
-    match service.start() {
+    match service.start::<&str>(&[]) {
         Ok(_) => println!("service '{SERVICE_NAME}' installed and started"),
         Err(start_error) => {
             let running = service
@@ -198,7 +198,7 @@ fn uninstall() -> Result<()> {
     use windows_service::service::ServiceAccess;
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
-    if let Ok(firewall) =
+    if let Ok(mut firewall) =
         netquota_enforcement::Firewall::connect(runtime::data_dir().join("firewall-manifest.json"), false)
     {
         let _ = firewall.restore_all();
