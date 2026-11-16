@@ -23,6 +23,10 @@ fn main() -> Result<()> {
     if args.iter().any(|a| a == "--uninstall") {
         return uninstall();
     }
+    if let Some(index) = args.iter().position(|arg| arg == "--allow-extension") {
+        let id = args.get(index + 1).context("--allow-extension needs an id")?;
+        return allow_extension(id);
+    }
     let console = args.iter().any(|a| a == "--console");
     let dry_run = std::env::var("NETQUOTA_DRY_RUN").is_ok_and(|v| v == "1");
     if dry_run {
@@ -190,6 +194,37 @@ fn install() -> Result<()> {
             println!("service '{SERVICE_NAME}' is already running");
         }
     }
+    Ok(())
+}
+
+/// Add a Chrome extension id to the service allow-list and restart the service
+/// so the change takes effect. Elevated, because the list lives in ProgramData.
+fn allow_extension(id: &str) -> Result<()> {
+    use windows_service::service::{ServiceAccess, ServiceState};
+    use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
+
+    if id.len() != 32 || !id.bytes().all(|byte| (b'a'..=b'p').contains(&byte)) {
+        anyhow::bail!("extension id must be 32 characters in the range a-p");
+    }
+    let dir = runtime::data_dir();
+    std::fs::create_dir_all(&dir).context("create data directory")?;
+    std::fs::write(dir.join("extension-id.txt"), format!("{id}\n"))
+        .context("write extension allow-list")?;
+
+    let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)?;
+    let access = ServiceAccess::STOP | ServiceAccess::START | ServiceAccess::QUERY_STATUS;
+    if let Ok(service) = manager.open_service(SERVICE_NAME, access) {
+        let _ = service.stop();
+        for _ in 0..50 {
+            match service.query_status() {
+                Ok(status) if status.current_state == ServiceState::Stopped => break,
+                Ok(_) => std::thread::sleep(Duration::from_millis(100)),
+                Err(_) => break,
+            }
+        }
+        service.start::<&str>(&[]).context("restart service")?;
+    }
+    println!("extension {id} allowed");
     Ok(())
 }
 
