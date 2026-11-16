@@ -137,7 +137,21 @@ fn install() -> Result<()> {
     };
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
-    let exe = std::env::current_exe().context("locate service executable")?;
+    let source = std::env::current_exe().context("locate service executable")?;
+    // The service must survive the folder it was downloaded to, so install a
+    // copy under ProgramData. A running service keeps its old image, so an
+    // upgrade can overwrite the file in place.
+    let bin_dir = runtime::data_dir().join("bin");
+    std::fs::create_dir_all(&bin_dir).context("create service directory")?;
+    let binary = bin_dir.join("netquota-service.exe");
+    if source != binary {
+        match std::fs::copy(&source, &binary) {
+            Ok(_) => {}
+            // Locked by the running service: keep using the installed copy.
+            Err(_) if binary.is_file() => {}
+            Err(err) => return Err(err).context("copy service executable"),
+        }
+    }
     let manager = ServiceManager::local_computer(
         None::<&str>,
         ServiceManagerAccess::CONNECT | ServiceManagerAccess::CREATE_SERVICE,
@@ -148,7 +162,7 @@ fn install() -> Result<()> {
         service_type: ServiceType::OWN_PROCESS,
         start_type: ServiceStartType::AutoStart,
         error_control: ServiceErrorControl::Normal,
-        executable_path: exe,
+        executable_path: binary,
         launch_arguments: Vec::new(),
         dependencies: Vec::new(),
         account_name: None,
@@ -195,6 +209,8 @@ fn uninstall() -> Result<()> {
         .context("open service")?;
     let _ = service.stop();
     service.delete().context("delete service")?;
+    // Remove the installed copy; failure here is harmless for a later reinstall.
+    let _ = std::fs::remove_dir_all(runtime::data_dir().join("bin"));
     println!("service '{SERVICE_NAME}' removed");
     Ok(())
 }
