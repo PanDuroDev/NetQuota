@@ -147,8 +147,12 @@ const T: Record<string, Record<string, string>> = {
     "settings.recover": "Remove all NetQuota restrictions",
     "settings.recoverHelp": "Removes every firewall rule NetQuota owns. Use it if a crash left an app blocked.",
     "settings.install": "Service installation",
-    "settings.installHelp": "Run scripts/install-service.ps1 from an elevated PowerShell. The desktop app never needs administrator rights.",
+    "settings.installHelp": "Press Install service and confirm the Windows prompt. It registers a LocalSystem service; this window keeps running without administrator rights.",
     "settings.offline": "Service offline — showing interface totals only.",
+    "svc.install": "Install service (asks for admin)",
+    "svc.retry": "Retry",
+    "svc.installing": "Installing…",
+    "svc.hint": "Installing registers a LocalSystem service so per-application usage and blocking work. This window stays unelevated.",
     "trust.recover": "Removed {n} NetQuota rules.",
     "trust.offline": "The service is not running. Per-application data and enforcement are unavailable.",
   },
@@ -202,8 +206,12 @@ const T: Record<string, Record<string, string>> = {
     "settings.recover": "إزالة كل قيود NetQuota",
     "settings.recoverHelp": "يحذف كل قواعد جدار الحماية التي تملكها NetQuota. استخدمه إذا تسبب عطل في حظر تطبيق.",
     "settings.install": "تثبيت الخدمة",
-    "settings.installHelp": "شغّل scripts/install-service.ps1 من PowerShell بصلاحيات المسؤول. التطبيق نفسه لا يحتاج صلاحيات إدارية.",
+    "settings.installHelp": "اضغط تثبيت الخدمة ثم أكّد رسالة ويندوز. سيُنشئ خدمة نظام، وتبقى هذه النافذة بدون صلاحيات إدارية.",
     "settings.offline": "الخدمة غير متصلة — تُعرض إحصاءات الواجهة فقط.",
+    "svc.install": "تثبيت الخدمة (يطلب صلاحية المدير)",
+    "svc.retry": "إعادة المحاولة",
+    "svc.installing": "جارٍ التثبيت…",
+    "svc.hint": "التثبيت ينشئ خدمة نظام لتعمل إحصاءات كل تطبيق والحجب. هذه النافذة تبقى بدون صلاحيات إدارية.",
     "trust.recover": "أُزيلت {n} قاعدة NetQuota.",
     "trust.offline": "الخدمة لا تعمل. بيانات التطبيقات والتنفيذ غير متاحة.",
   },
@@ -214,6 +222,7 @@ let theme: "dark" | "light" = "dark";
 let page = "dashboard";
 let snapshot: Snapshot | null = null;
 let health: Health | null = null;
+let installBusy = false;
 let fallback: FallbackUsage | null = null;
 let editorKey: string | null = null;
 let lastError = "";
@@ -286,12 +295,14 @@ function renderNav(): void {
 
 function banner(): string {
   if (health?.connected) return "";
-  if (health) {
-    return `<div class="banner">${esc(t("settings.offline"))} ${
-      snapshot ? "" : esc(t("trust.offline"))
-    }</div>`;
-  }
-  return "";
+  if (!health) return "";
+  const busy = installBusy ? ` ${esc(t("svc.installing"))}` : "";
+  return `<div class="banner"><div>${esc(t("settings.offline"))} ${esc(t("trust.offline"))}
+    <p class="hint">${esc(t("svc.hint"))}</p></div>
+    <div class="banner-actions">
+      <button class="primary" data-svc="install" ${installBusy ? "disabled" : ""}>${esc(t("svc.install"))}${busy}</button>
+      <button class="ghost" data-svc="retry">${esc(t("svc.retry"))}</button>
+    </div></div>`;
 }
 
 function cards(): string {
@@ -591,6 +602,10 @@ function viewSettings(): string {
       </div></div>
     <div class="section"><h2>${esc(t("settings.install"))}</h2>
       <div class="card"><div class="small muted">${esc(t("settings.installHelp"))}</div>
+      <div class="banner-actions" style="margin-top:10px">
+        <button data-svc="install" ${installBusy ? "disabled" : ""}>${esc(t("svc.install"))}</button>
+        <button class="ghost" data-svc="retry">${esc(t("svc.retry"))}</button>
+      </div>
       <div class="small muted" style="margin-top:8px">Extension: load <code>apps/chrome-extension</code> unpacked, then run
       <code>scripts/register-native-host.ps1 -ExtensionId &lt;id&gt;</code> so the bridge can authenticate it.</div></div></div>
     ${lastError ? `<div class="banner" style="margin-top:14px">${esc(lastError)}</div>` : ""}`;
@@ -710,6 +725,28 @@ function boot(): void {
     render();
   });
   document.getElementById("refresh")!.addEventListener("click", () => void refresh(true));
+  document.getElementById("view")!.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLElement>("[data-svc]");
+    if (!button) return;
+    if (button.dataset.svc === "retry") {
+      void refresh(true);
+      return;
+    }
+    installBusy = true;
+    render();
+    void invoke<string>("install_service")
+      .then(async () => {
+        installBusy = false;
+        // The service needs a moment before the pipe accepts clients.
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await refresh(true);
+      })
+      .catch((err) => {
+        installBusy = false;
+        lastError = String(err);
+        render();
+      });
+  });
   renderNav();
   void refresh(true);
   // Live dashboard only: editors keep focus, other pages refresh on navigation.
